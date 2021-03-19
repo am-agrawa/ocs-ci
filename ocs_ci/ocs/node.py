@@ -178,13 +178,13 @@ def schedule_nodes(node_names):
     wait_for_nodes_status(node_names)
 
 
-def drain_nodes(node_names):
+def drain_nodes(node_names, timeout=1800):
     """
     Drain nodes
 
     Args:
         node_names (list): The names of the nodes
-
+        timeout (int): timeout for drain node command
     Raises:
         TimeoutExpired: in case drain command fails to complete in time
 
