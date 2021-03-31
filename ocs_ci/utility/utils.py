@@ -699,6 +699,7 @@ def get_openshift_client(
     version = expose_ocp_version(version)
     bin_dir = os.path.expanduser(bin_dir or config.RUN["bin_dir"])
     client_binary_path = os.path.join(bin_dir, "oc")
+    return client_binary_path
     download_client = True
 
     if force_download:
