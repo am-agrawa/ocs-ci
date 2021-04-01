@@ -104,6 +104,7 @@ def get_ocsci_conf():
         conf_obj["REPORTING"]["email"] = dict(smtp_server=env["SMTP_SERVER"])
     conf_obj["DEPLOYMENT"] = dict(
         ocs_registry_image=env["OCS_REGISTRY_IMAGE"],
+        openshift_install_timeout=3900,
     )
     if env.get("OCP_VERSION"):
         conf_obj["DEPLOYMENT"]["ocp_version"] = env["OCP_VERSION"]
