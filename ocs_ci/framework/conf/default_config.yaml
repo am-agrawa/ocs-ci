@@ -88,6 +88,7 @@ DEPLOYMENT:
   # Ceph in debug log level
   ceph_debug: False
 
+
 # Section for reporting configuration
 REPORTING:
   email:
@@ -192,3 +193,13 @@ UI_SELENIUM:
   headless: True
   screenshot: True
   ignore_ssl: True
+
+
+# Specific component to be enabled/disabled
+# like RGW, NOOBAA, CephFS, RBD
+COMPONENTS:
+  enable_rgw: True
+  enable_noobaa: True
+  enable_cephfs: True
+  enable_rbd: True
+
