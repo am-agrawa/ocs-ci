@@ -3299,3 +3299,20 @@ def get_client_version(client_binary_path):
         resp = exec_cmd(cmd)
         stdout = json.loads(resp.stdout.decode())
         return stdout["releaseClientVersion"]
+
+
+def csv_args(components):
+    """
+    Process comma seperated component names
+    actually just to check valid component names
+
+    components (str): arg recieved from command line
+
+    """
+    for component in components.split(","):
+        if component not in constants.OCS_COMPONENTS:
+            raise argparse.ArgumentTypeError(
+                f"Invalid component:{component}, please choose from"
+                f"{constants.OCS_COMPONENTS} with any combination"
+            )
+    return components
