@@ -10,11 +10,11 @@ from ocs_ci.utility.utils import (
     ceph_health_check,
     TimeoutSampler,
     ocsci_log_path,
-    get_az_count,
 )
 
 REPORT = "Node_and_Osd_distribution_report.txt"
 FINAL_REPORT = "Final Report"
+INITIAL_SETUP = "Initial Setup"
 MAX_NODE_COUNT = 9
 MAX_OSDS_PER_NODE = 3
 START_NODE_NUM = 3
@@ -171,10 +171,8 @@ class Test_Prototype(E2ETest):
             add 3 nodes
             add 9 osds (27 total, 9 nodes)
         """
-        if get_az_count() == 1:
-            logging.info("WARNING -- not enough availability zones")
         ltext = ["first", "second", "third"]
-        collect_stats("Initial Setup")
+        collect_stats(INITIAL_SETUP)
         pod_obj = ocp.OCP(
             kind=constants.POD, namespace=constants.OPENSHIFT_STORAGE_NAMESPACE
         )
