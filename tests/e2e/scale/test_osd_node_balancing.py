@@ -2,9 +2,10 @@
 Test osd node balancing by adding nodes and osds and checking their distribution
 """
 import logging
-from ocs_ci.framework.testlib import scale, E2ETest, ignore_leftovers
+from ocs_ci.framework.testlib import scale, ignore_leftovers
 from ocs_ci.ocs import constants, machine, ocp
 from ocs_ci.ocs.node import add_new_node_and_label_it, get_osd_running_nodes, get_nodes
+from ocs_ci.ocs.perftests import PASTest
 from ocs_ci.ocs.resources import storage_cluster
 from ocs_ci.utility.utils import (
     ceph_health_check,
@@ -36,7 +37,7 @@ def add_some_worker_nodes():
     machine_names = [
         machine.get_machine_from_node_name(osd_node) for osd_node in osd_running_nodes
     ]
-    logging.info(f"{osd_running_nodes} associated " f"machine are {machine_names}")
+    logging.info(f"{osd_running_nodes} associated machines are {machine_names}")
     # Get the machineset name using machine name
     machineset_names = [
         machine.get_machineset_from_machine_name(machine_name)
@@ -53,7 +54,7 @@ def add_some_worker_nodes():
         node_obj.add_label(
             resource_name=new_node[0], label=constants.OPERATOR_NODE_LABEL
         )
-    collect_stats("Three nodes have been added")
+    collect_stats(f"{NUM_NODE_ADDS} nodes have been added")
 
 
 def increase_osd_capacity():
@@ -100,10 +101,7 @@ def collect_stats(action_text):
     osd_list = pod_obj.get(selector=constants.OSD_APP_LABEL)["items"]
     node_stats = {}
     for osd_ent in osd_list:
-        try:
-            osd_node = osd_ent["spec"]["nodeName"]
-        except KeyError:
-            continue
+        osd_node = osd_ent["spec"]["nodeName"]
         if osd_node in node_stats:
             node_stats[osd_node].append(osd_ent)
         else:
@@ -113,7 +111,6 @@ def collect_stats(action_text):
         osds_per_node.append(len(node_stats[entry]))
     wnodes = get_nodes(constants.WORKER_MACHINE)
     for wnode in wnodes:
-        logging.info(wnode.name)
         if wnode.name not in node_stats:
             osds_per_node.append(0)
     maxov = max(osds_per_node)
@@ -133,29 +130,26 @@ def collect_stats(action_text):
         fd.write("\nOSD distribution:\n")
         for entry in osd_list:
             fd.write(f"\t\t{entry['metadata']['name']}")
-            try:
-                fd.write(f" is on {entry['spec']['nodeName']}\n")
-            except KeyError:
-                fd.write(" is on an unknown node\n")
+            fd.write(f" is on {entry['spec']['nodeName']}\n")
         fd.write(f"\nMaximum number of OSDs on a node: {maxov}\n")
         fd.write(f"Minimum number of OSDs on a node: {minov}\n")
         fd.write(f"Skew (Difference in OSD counts): {this_skew}\n")
-        if this_skew > 1:
-            fd.write("\n*** ERROR *** OSDs are not balanced between nodes\n")
-        else:
-            fd.write("\n*** OSDs are evenly distributed ***\n")
         fd.write("\n-------------------------------------------------------------\n")
-    if action_text == FINAL_REPORT:
+    balanced = True
+    if this_skew > 1 and maxov > MAX_OSDS_PER_NODE:
+        balanced = False
+    if action_text == FINAL_REPORT or not balanced:
         with open(outfile, "r") as fd:
             logged_info = fd.read()
             for inline in logged_info.split("\n"):
                 logging.info(inline)
         logging.info(f"Summary of test results output in {outfile}")
+    assert balanced, "OSDs are not balanced"
 
 
 @ignore_leftovers
 @scale
-class Test_Prototype(E2ETest):
+class Test_Prototype(PASTest):
     """
     There is no cleanup code in this test because the final
     state is much different from the original configuration
