@@ -5,16 +5,19 @@ import time
 import datetime
 import re
 import pathlib
+import pytest
 
 from ocs_ci.helpers import helpers
 from ocs_ci.ocs.ocp import OCP
 from ocs_ci.framework import config
 from ocs_ci.utility import templating, utils
 from ocs_ci.ocs.resources.ocs import OCS
-from ocs_ci.utility.utils import ocsci_log_path
+from ocs_ci.ocs.resources import storage_cluster
+from ocs_ci.ocs import machine as machine_utils
 from ocs_ci.ocs import constants, cluster, machine, node
+from ocs_ci.ocs.node import get_nodes, get_worker_nodes
 from ocs_ci.ocs.resources.objectconfigfile import ObjectConfFile
-from ocs_ci.ocs.node import get_nodes
+from ocs_ci.utility.utils import ocsci_log_path, ceph_health_check
 from ocs_ci.ocs.exceptions import (
     UnavailableResourceException,
     UnexpectedBehaviour,
@@ -1286,3 +1289,100 @@ def get_pod_creation_time_in_kube_job(kube_job_obj, namespace, no_of_pod):
         pod_dict[pod_name] = total.total_seconds()
 
     return pod_dict
+
+
+def scale_ocs_node(node_count=3):
+    """
+    Scale OCS worker node by increasing the respective
+    machineset replica value by node_count.
+    Function supports only cloud platforms
+
+    Example: If node_count = 3 & existing cluster has 3 worker nodes,
+    then at the end of this function, setup should have 6 OCS worker nodes.
+
+    Args:
+        node_count (int): Add node_count OCS worker node to the cluster
+
+    """
+    if config.ENV_DATA['platform'].lower() in constants.CLOUD_PLATFORMS:
+        dt = config.ENV_DATA['deployment_type']
+        if dt == 'ipi':
+
+            # Get the initial nodes list
+            initial_nodes = get_worker_nodes()
+
+            ms_name = machine_utils.get_machineset_objs()
+            if len(ms_name) == 3:
+                add_replica_by = int(node_count / 3)
+            else:
+                add_replica_by = node_count
+
+            replica = machine_utils.get_ready_replica_count(ms_name[0].name)
+
+            # Increase the replica count and wait for node add to complete.
+            for ms in ms_name:
+                machine_utils.add_node(
+                    machine_set=ms.name, count=(replica + add_replica_by)
+                )
+            threads = list()
+            for ms in ms_name:
+                process = threading.Thread(
+                    target=machine_utils.wait_for_new_node_to_be_ready,
+                    kwargs={'machine_set': ms.name}
+                )
+                process.start()
+                threads.append(process)
+            for process in threads:
+                process.join()
+
+            # Get the node name of new spun node
+            nodes_after_new_spun_node = get_worker_nodes()
+            new_spun_node = list(
+                set(nodes_after_new_spun_node) - set(initial_nodes)
+            )
+            logging.info(f"New spun node is {new_spun_node}")
+
+            # Label it
+            node_obj = OCP(kind='node')
+            for new_node in new_spun_node:
+                node_obj.add_label(
+                    resource_name=new_node,
+                    label=constants.OPERATOR_NODE_LABEL
+                )
+                logging.info(
+                    f"Successfully labeled {new_spun_node} with OCS storage label"
+                )
+
+    else:
+        raise UnsupportedPlatformError("Unsupported Platform")
+
+
+def scale_osd_capacity(storagecluster_replica_count=1):
+    """
+    Scale OSD count by increasing the replica count in
+    storagecluster.yaml
+
+    Example: If storagecluster_replica_count = 2 & existing clusters
+    storage_cluster osd replica value is 1 then, storage_cluster osd
+    replica value will be added +2. end of function cluster should have
+    storage_replica count as 3 and total 9 OSDs in the cluster.
+
+    Args:
+        storagecluster_replica_count (int): Expected OSD replica_count in storagecluster
+
+    """
+    osd_size = storage_cluster.get_osd_size()
+    assert storage_cluster.add_capacity(osd_size * storagecluster_replica_count)
+    pod = OCP(
+        kind=constants.POD, namespace=config.ENV_DATA['cluster_namespace']
+    )
+    pod.wait_for_resource(
+        timeout=300,
+        condition=constants.STATUS_RUNNING,
+        selector='app=rook-ceph-osd',
+        resource_count=cluster.count_cluster_osd()
+    )
+
+    ceph_health_check(
+        namespace=config.ENV_DATA['cluster_namespace'], tries=80
+    )
