@@ -5,7 +5,6 @@ import time
 import datetime
 import re
 import pathlib
-import pytest
 
 from ocs_ci.helpers import helpers
 from ocs_ci.ocs.ocp import OCP
@@ -1304,9 +1303,9 @@ def scale_ocs_node(node_count=3):
         node_count (int): Add node_count OCS worker node to the cluster
 
     """
-    if config.ENV_DATA['platform'].lower() in constants.CLOUD_PLATFORMS:
-        dt = config.ENV_DATA['deployment_type']
-        if dt == 'ipi':
+    if config.ENV_DATA["platform"].lower() in constants.CLOUD_PLATFORMS:
+        dt = config.ENV_DATA["deployment_type"]
+        if dt == "ipi":
 
             # Get the initial nodes list
             initial_nodes = get_worker_nodes()
@@ -1328,7 +1327,7 @@ def scale_ocs_node(node_count=3):
             for ms in ms_name:
                 process = threading.Thread(
                     target=machine_utils.wait_for_new_node_to_be_ready,
-                    kwargs={'machine_set': ms.name}
+                    kwargs={"machine_set": ms.name},
                 )
                 process.start()
                 threads.append(process)
@@ -1337,17 +1336,14 @@ def scale_ocs_node(node_count=3):
 
             # Get the node name of new spun node
             nodes_after_new_spun_node = get_worker_nodes()
-            new_spun_node = list(
-                set(nodes_after_new_spun_node) - set(initial_nodes)
-            )
+            new_spun_node = list(set(nodes_after_new_spun_node) - set(initial_nodes))
             logging.info(f"New spun node is {new_spun_node}")
 
             # Label it
-            node_obj = OCP(kind='node')
+            node_obj = OCP(kind="node")
             for new_node in new_spun_node:
                 node_obj.add_label(
-                    resource_name=new_node,
-                    label=constants.OPERATOR_NODE_LABEL
+                    resource_name=new_node, label=constants.OPERATOR_NODE_LABEL
                 )
                 logging.info(
                     f"Successfully labeled {new_spun_node} with OCS storage label"
@@ -1373,16 +1369,12 @@ def scale_osd_capacity(storagecluster_replica_count=1):
     """
     osd_size = storage_cluster.get_osd_size()
     assert storage_cluster.add_capacity(osd_size * storagecluster_replica_count)
-    pod = OCP(
-        kind=constants.POD, namespace=config.ENV_DATA['cluster_namespace']
-    )
+    pod = OCP(kind=constants.POD, namespace=config.ENV_DATA["cluster_namespace"])
     pod.wait_for_resource(
         timeout=300,
         condition=constants.STATUS_RUNNING,
-        selector='app=rook-ceph-osd',
-        resource_count=cluster.count_cluster_osd()
+        selector="app=rook-ceph-osd",
+        resource_count=cluster.count_cluster_osd(),
     )
 
-    ceph_health_check(
-        namespace=config.ENV_DATA['cluster_namespace'], tries=80
-    )
+    ceph_health_check(namespace=config.ENV_DATA["cluster_namespace"], tries=80)
