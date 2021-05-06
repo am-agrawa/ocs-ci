@@ -201,5 +201,5 @@ COMPONENTS:
   disable_rgw: False
   disable_noobaa: False
   disable_cephfs: False
-  disable_rbd: False
+  disable_blockpools: False
 
