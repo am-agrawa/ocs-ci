@@ -1353,7 +1353,7 @@ def scale_ocs_node(node_count=3):
         raise UnsupportedPlatformError("Unsupported Platform")
 
 
-def scale_osd_capacity(storagecluster_replica_count=1):
+def scale_osd_capacity(expected_osd_count=9):
     """
     Scale OSD count by increasing the replica count in
     storagecluster.yaml
@@ -1364,11 +1364,31 @@ def scale_osd_capacity(storagecluster_replica_count=1):
     storage_replica count as 3 and total 9 OSDs in the cluster.
 
     Args:
-        storagecluster_replica_count (int): Expected OSD replica_count in storagecluster
+        expected_osd_count (int): Expected OSD replica_count in storagecluster
 
     """
     osd_size = storage_cluster.get_osd_size()
-    assert storage_cluster.add_capacity(osd_size * storagecluster_replica_count)
+    existing_osd_count = cluster.count_cluster_osd()
+    scale_osd_count = abs(expected_osd_count - existing_osd_count)
+    osd_size_capacity_requested = osd_size * (scale_osd_count / 3)
+    logging.info(f"value passed to add_capacity {osd_size_capacity_requested}")
+
+    osd_size_existing = storage_cluster.get_osd_size()
+    device_sets_required = int(osd_size_capacity_requested / osd_size_existing)
+    old_storage_devices_sets_count = storage_cluster.get_deviceset_count()
+    new_storage_devices_sets_count = int(
+        device_sets_required + old_storage_devices_sets_count
+    )
+
+    # adding the storage capacity to the cluster
+    params = f"""[{{ "op": "replace", "path": "/spec/storageDeviceSets/0/count",
+                       "value": {new_storage_devices_sets_count}}}]"""
+    sc = storage_cluster.get_storage_cluster()
+    sc.patch(
+        resource_name=sc.get()["items"][0]["metadata"]["name"],
+        params=params.strip("\n"),
+        format_type="json",
+    )
     pod = OCP(kind=constants.POD, namespace=config.ENV_DATA["cluster_namespace"])
     pod.wait_for_resource(
         timeout=300,
