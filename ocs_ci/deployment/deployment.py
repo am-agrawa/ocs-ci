@@ -3153,7 +3153,7 @@ class MultiClusterDROperatorsDeploy(object):
         if veleropod[0]["status"]["phase"] != "Running":
             raise ACMClusterConfigurationException("Velero pod not in 'Running' phase")
 
-        # Check backupstoragelocation resource is in "Available" phase
+        # Check backupstoragelocation resource is in "Available" phase or not
         backupstorage = ocp.OCP(
             kind="BackupStorageLocation",
             resource_name="default",
