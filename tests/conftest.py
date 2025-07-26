@@ -7551,7 +7551,8 @@ def discovered_apps_dr_workload_cnv(request):
             "dr_cnv_discovered_apps_shared" if shared else "dr_cnv_discovered_apps"
         )
         for index in range(pvc_vm):
-            workload_details = copy.deepcopy(ocsci_config.ENV_DATA[workload_key][index])
+            workload_details = ocsci_config.ENV_DATA[workload_key][index]
+            # workload_details = copy.deepcopy(ocsci_config.ENV_DATA[workload_key][index])
             if shared and instances:
                 workload_details["workload_namespace"] = instances[0].workload_namespace
             workload = CnvWorkloadDiscoveredApps(
